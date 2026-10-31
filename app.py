@@ -54,6 +54,8 @@ def carregar_dados():
         # Limpeza e formatação de datas
         df_concat['Data_dt'] = pd.to_datetime(df_concat['Data e Hora'], format='%d/%m/%Y às %H:%M', errors='coerce')
         df_concat['Dia'] = df_concat['Data_dt'].dt.strftime('%d/%m/%Y')
+        df_concat['Mes_Ano'] = df_concat['Data_dt'].dt.strftime('%m/%Y')
+        df_concat['Ano'] = df_concat['Data_dt'].dt.strftime('%Y')
         return df_concat
     return pd.DataFrame()
 
@@ -64,18 +66,37 @@ if df.empty:
     st.warning("Nenhum dado encontrado nos arquivos CSV.")
     st.stop()
 
-# 3. Barra Lateral (Filtros Inteligentes)
+# 3. Barra Lateral (Filtros Hierárquicos: Ano, Mês e Dia)
 st.sidebar.image("https://img.icons8.com/color/96/strawberry.png", width=70)
 st.sidebar.title("Painel de Controle")
 
-dias_disponiveis = sorted(df['Dia'].dropna().unique(), reverse=True)
-opcao_dia = st.sidebar.selectbox("📅 Selecione a Data:", ["Todos os Dias"] + dias_disponiveis)
+# Filtro de Ano
+anos_disponiveis = sorted(df['Ano'].dropna().unique(), reverse=True)
+opcao_ano = st.sidebar.selectbox("📅 Selecione o Ano:", ["Todos os Anos"] + list(anos_disponiveis))
 
-# Aplicação do Filtro
-if opcao_dia != "Todos os Dias":
-    df_filtered = df[df['Dia'] == opcao_dia]
+if opcao_ano != "Todos os Anos":
+    df_filtrado_ano = df[df['Ano'] == opcao_ano]
 else:
-    df_filtered = df.copy()
+    df_filtrado_ano = df.copy()
+
+# Filtro de Mês com base no ano selecionado
+meses_disponiveis = sorted(df_filtrado_ano['Mes_Ano'].dropna().unique(), reverse=True)
+opcao_mes = st.sidebar.selectbox("📆 Selecione o Mês:", ["Todos os Meses"] + list(meses_disponiveis))
+
+if opcao_mes != "Todos os Meses":
+    df_filtrado_mes = df_filtrado_ano[df_filtrado_ano['Mes_Ano'] == opcao_mes]
+else:
+    df_filtrado_mes = df_filtrado_ano.copy()
+
+# Filtro de Dia com base no mês/ano selecionado
+dias_disponiveis = sorted(df_filtrado_mes['Dia'].dropna().unique(), reverse=True)
+opcao_dia = st.sidebar.selectbox("📌 Selecione o Dia:", ["Todos os Dias"] + list(dias_disponiveis))
+
+# Aplicação do Filtro Final
+if opcao_dia != "Todos os Dias":
+    df_filtered = df_filtrado_mes[df_filtrado_mes['Dia'] == opcao_dia]
+else:
+    df_filtered = df_filtrado_mes.copy()
 
 # 4. Cabeçalho Principal
 st.title("🍍 Tenda das Frutas — Performance de Vendas")
@@ -164,7 +185,7 @@ with graf2:
         fig_barras.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
         st.plotly_chart(fig_barras, use_container_width=True)
 
-# Seção de Formas de Pagamento (Gráfico de Barras Horizontais)
+# 7. Seção de Formas de Pagamento (Gráfico de Barras Horizontais sem "Outros")
 st.markdown("---")
 pag_col1, pag_col2 = st.columns(2)
 
@@ -172,6 +193,8 @@ with pag_col1:
     st.subheader("💳 Faturamento por Forma de Pagamento")
     if 'Forma de Pagamento' in df_filtered.columns:
         def simplificar_pagamento(texto):
+            if pd.isna(texto):
+                return "Dinheiro"
             texto_upper = str(texto).upper()
             if "PIX" in texto_upper:
                 return "PIX"
@@ -179,9 +202,10 @@ with pag_col1:
                 return "Cartão de Débito"
             elif "CRÉDITO" in texto_upper:
                 return "Cartão de Crédito"
-            elif "DINHEIRO" in texto_upper:
+            else:
                 return "Dinheiro"
-            return "Outros"
+
+
         df_filtered_temp = df_filtered.copy()
         df_filtered_temp['Tipo_Pagamento'] = df_filtered_temp['Forma de Pagamento'].apply(simplificar_pagamento)
 
