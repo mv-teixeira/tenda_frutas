@@ -2,7 +2,7 @@
 
 > Um sistema completo de automação de vendas, registo de caixa e análise de dados interativa desenvolvido em Python e Streamlit para fins de portfólio profissional.
 
-  
+> **🚀 [Experimente o Dashboard Online em Tempo Real](https://tendafrutas-fyj6knjaqwih4n59hwg8x7.streamlit.app/)**
 
 ## 🎯 Sobre o Projeto
 
