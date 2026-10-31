@@ -164,7 +164,7 @@ with graf2:
         fig_barras.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
         st.plotly_chart(fig_barras, use_container_width=True)
 
-# 7. Seção de Formas de Pagamento (PIX, Dinheiro, Cartão)
+# Seção de Formas de Pagamento (Gráfico de Barras Horizontais)
 st.markdown("---")
 pag_col1, pag_col2 = st.columns(2)
 
@@ -182,18 +182,31 @@ with pag_col1:
             elif "DINHEIRO" in texto_upper:
                 return "Dinheiro"
             return "Outros"
-
-
         df_filtered_temp = df_filtered.copy()
         df_filtered_temp['Tipo_Pagamento'] = df_filtered_temp['Forma de Pagamento'].apply(simplificar_pagamento)
 
+        # Agrupando e ordenando para o gráfico de barras horizontais
         df_pag = df_filtered_temp.groupby('Tipo_Pagamento')[coluna_valor].sum().reset_index()
-        fig_pie = px.pie(
-            df_pag, names='Tipo_Pagamento', values=coluna_valor, hole=0.4,
-            template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Safe
+        df_pag = df_pag.sort_values(by=coluna_valor, ascending=True)
+
+        fig_bar_pag = px.bar(
+            df_pag,
+            x=coluna_valor,
+            y='Tipo_Pagamento',
+            orientation='h',
+            template="plotly_dark",
+            color=coluna_valor,
+            color_continuous_scale="Viridis",
+            labels={coluna_valor: 'Faturamento (R$)', 'Tipo_Pagamento': 'Forma de Pagamento'}
         )
-        fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-        st.plotly_chart(fig_pie, use_container_width=True)
+        fig_bar_pag.update_layout(
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            showlegend=False,
+            xaxis_title="Faturamento Total (R$)",
+            yaxis_title=""
+        )
+        st.plotly_chart(fig_bar_pag, use_container_width=True)
     else:
         st.info("Coluna 'Forma de Pagamento' não encontrada nos dados.")
 
@@ -203,7 +216,7 @@ with pag_col2:
         resumo_pag = df_filtered_temp.groupby('Tipo_Pagamento').agg(
             Qtd_Transacoes=(coluna_valor, 'count'),
             Faturamento_Total=(coluna_valor, 'sum')
-        ).reset_index()
+        ).reset_index().sort_values(by='Faturamento_Total', ascending=False)
         st.dataframe(resumo_pag, use_container_width=True, hide_index=True)
     else:
         st.info("Sem dados de pagamento disponíveis.")
