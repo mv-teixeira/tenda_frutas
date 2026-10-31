@@ -1,156 +1,221 @@
-import glob
+import streamlit as st
 import pandas as pd
 import plotly.express as px
-import streamlit as st
+import glob
 
-# Configuração da página do dashboard
+# 1. Configuração da página (deve ser o primeiro comando Streamlit)
 st.set_page_config(
-    page_title="Tenda das Frutas - Dashboard", page_icon="🍎", layout="wide"
+    page_title="Tenda das Frutas | Analytics",
+    page_icon="🍍",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-st.title("🍎 Tenda das Frutas - Dashboard Executivo")
-st.markdown(
-    "Painel analítico interativo com navegação temporal e consolidação em"
-    " tempo real."
-)
+# Estilização CSS personalizada para visual executivo (Dark Theme)
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0E1117;
+    }
+    .kpi-card {
+        background-color: #1E222D;
+        border-radius: 10px;
+        padding: 15px 20px;
+        border-left: 5px solid #00D47E;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        margin-bottom: 10px;
+    }
+    .kpi-title {
+        font-size: 0.9rem;
+        color: #A0AAB8;
+        margin-bottom: 5px;
+        font-weight: 500;
+    }
+    .kpi-value {
+        font-size: 1.8rem;
+        color: #FFFFFF;
+        font-weight: 700;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# 1. Carregando TODOS os arquivos CSV da pasta
-todos_arquivos = glob.glob("vendas_*_*_*.csv")
 
-if not todos_arquivos:
-  st.warning("⚠️ Nenhum arquivo de vendas encontrado na base de dados.")
-  st.info(
-      "Execute algumas vendas no seu sistema transacional para gerar os dados!"
-  )
+# 2. Carregamento e consolidação dinâmica dos dados
+@st.cache_data
+def carregar_dados():
+    arquivos = glob.glob("vendas_*.csv")
+    lista_dfs = []
+    for arq in arquivos:
+        df_temp = pd.read_csv(arq)
+        lista_dfs.append(df_temp)
+
+    if lista_dfs:
+        df_concat = pd.concat(lista_dfs, ignore_index=True)
+        # Limpeza e formatação de datas
+        df_concat['Data_dt'] = pd.to_datetime(df_concat['Data e Hora'], format='%d/%m/%Y às %H:%M', errors='coerce')
+        df_concat['Dia'] = df_concat['Data_dt'].dt.strftime('%d/%m/%Y')
+        return df_concat
+    return pd.DataFrame()
+
+
+df = carregar_dados()
+
+if df.empty:
+    st.warning("Nenhum dado encontrado nos arquivos CSV.")
+    st.stop()
+
+# 3. Barra Lateral (Filtros Inteligentes)
+st.sidebar.image("https://img.icons8.com/color/96/strawberry.png", width=70)
+st.sidebar.title("Painel de Controle")
+
+dias_disponiveis = sorted(df['Dia'].dropna().unique(), reverse=True)
+opcao_dia = st.sidebar.selectbox("📅 Selecione a Data:", ["Todos os Dias"] + dias_disponiveis)
+
+# Aplicação do Filtro
+if opcao_dia != "Todos os Dias":
+    df_filtered = df[df['Dia'] == opcao_dia]
 else:
-  # Consolida todos os CSVs em um DataFrame global
-  lista_dfs = [pd.read_csv(arq) for arq in todos_arquivos]
-  df_global = pd.concat(lista_dfs, ignore_index=True)
+    df_filtered = df.copy()
 
-  # Tratamento de datas para ordenação e agrupamento
-  df_global["Data_DT"] = pd.to_datetime(
-      df_global["Data e Hora"], format="%d/%m/%Y às %H:%M", errors="coerce"
-  )
-  df_global["Data_Dia"] = df_global["Data_DT"].dt.date
-  df_global["Ano"] = df_global["Data_DT"].dt.year.astype(str)
-  df_global["Mes_Ano"] = df_global["Data_DT"].dt.strftime("%m_%Y")
+# 4. Cabeçalho Principal
+st.title("🍍 Tenda das Frutas — Performance de Vendas")
+st.caption("Dashboard executivo em tempo real para acompanhamento de faturamento e fluxo de caixa.")
+st.markdown("---")
 
-  # -------------------------------------------------------------
-  # BARRA LATERAL (FILTROS DE NAVEGAÇÃO)
-  # -------------------------------------------------------------
-  st.sidebar.header("🔍 Filtros de Análise")
+# 5. Métricas de Alto Impacto (KPIs)
+col1, col2, col3, col4 = st.columns(4)
 
-  tipo_visao = st.sidebar.radio(
-      "Selecione o Nível de Análise:",
-      ["Mês Específico", "Consolidado Anual (Todos os Meses)"],
-  )
+coluna_valor = 'Valor Total' if 'Valor Total' in df_filtered.columns else 'Valor'
 
-  if tipo_visao == "Mês Específico":
-    meses_disponiveis = sorted(
-        df_global["Mes_Ano"].dropna().unique(), reverse=True
-    )
-    mes_selecionado = st.sidebar.selectbox(
-        "Escolha o Mês/Ano:", meses_disponiveis
-    )
-    df_filtrado = df_global[df_global["Mes_Ano"] == mes_selecionado]
-    titulo_periodo = f"Período: {mes_selecionado}"
-  else:
-    anos_disponiveis = sorted(df_global["Ano"].dropna().unique(), reverse=True)
-    ano_selecionado = st.sidebar.selectbox("Escolha o Ano:", anos_disponiveis)
-    df_filtrado = df_global[df_global["Ano"] == ano_selecionado]
-    titulo_periodo = f"Visão Consolidada do Ano {ano_selecionado}"
+total_faturado = df_filtered[coluna_valor].sum() if coluna_valor in df_filtered.columns else 0.0
+total_pedidos = len(df_filtered)
+ticket_medio = total_faturado / total_pedidos if total_pedidos > 0 else 0.0
+clientes_unicos = df_filtered['Cliente'].nunique() if 'Cliente' in df_filtered.columns else 0
 
-  # -------------------------------------------------------------
-  # PAINEL PRINCIPAL (DASHBOARD)
-  # -------------------------------------------------------------
-  st.subheader(f"📊 Indicadores de Desempenho — {titulo_periodo}")
+with col1:
+    st.markdown(f"""
+        <div class="kpi-card">
+            <div class="kpi-title">Faturamento Total</div>
+            <div class="kpi-value">R$ {total_faturado:,.2f}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-  if df_filtrado.empty:
-    st.error("Nenhum dado encontrado para o filtro selecionado.")
-  else:
-    # 1. Cartões de Métricas (KPIs)
-    total_vendas = df_filtrado.shape[0]
-    faturamento_total = df_filtrado["Valor Total"].sum()
-    ticket_medio = df_filtrado["Valor Total"].mean()
+with col2:
+    st.markdown(f"""
+        <div class="kpi-card" style="border-left-color: #00B4D8;">
+            <div class="kpi-title">Total de Vendas</div>
+            <div class="kpi-value">{total_pedidos}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total de Atendimentos", f"{total_vendas}")
-    col2.metric("Faturamento Total", f"R$ {faturamento_total:.2f}")
-    col3.metric("Ticket Médio", f"R$ {ticket_medio:.2f}")
+with col3:
+    st.markdown(f"""
+        <div class="kpi-card" style="border-left-color: #FF9E00;">
+            <div class="kpi-title">Ticket Médio</div>
+            <div class="kpi-value">R$ {ticket_medio:,.2f}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    st.markdown("---")
+with col4:
+    st.markdown(f"""
+        <div class="kpi-card" style="border-left-color: #7209B7;">
+            <div class="kpi-title">Clientes Atendidos</div>
+            <div class="kpi-value">{clientes_unicos}</div>
+        </div>
+    """, unsafe_allow_html=True)
 
-    # 2. Gráfico de Evolução Temporal (Faturamento Diário)
-    st.subheader("📈 Evolução Diária do Faturamento")
-    vendas_dia = (
-        df_filtrado.groupby("Data_Dia")["Valor Total"].sum().reset_index()
-    )
-    vendas_dia.columns = ["Data", "Faturamento"]
+st.markdown("<br>", unsafe_allow_html=True)
 
-    fig_linha = px.line(
-        vendas_dia,
-        x="Data",
-        y="Faturamento",
-        markers=True,
-        color_discrete_sequence=["#00D1B2"],
-    )
-    fig_linha.update_layout(
-        plot_bgcolor="rgba(0,0,0,0)",
-        paper_bgcolor="rgba(0,0,0,0)",
-        font_color="#E0E6ED",
-        margin=dict(t=20, b=20, l=20, r=20),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=True, gridcolor="#1E2631"),
-    )
-    st.plotly_chart(fig_linha, width="stretch")
+# 6. Gráficos Interativos com Plotly (Tema Dark)
+graf1, graf2 = st.columns(2)
 
-    st.markdown("---")
+with graf1:
+    st.subheader("📈 Evolução de Vendas ao Longo do Dia")
+    if not df_filtered.empty and 'Data_dt' in df_filtered.columns:
+        df_hora = df_filtered.set_index('Data_dt').resample('1H')[coluna_valor].sum().reset_index()
+        fig_linha = px.line(
+            df_hora,
+            x='Data_dt',
+            y=coluna_valor,
+            markers=True,
+            labels={'Data_dt': 'Horário', coluna_valor: 'Faturamento (R$)'},
+            template="plotly_dark"
+        )
+        fig_linha.update_traces(line_color="#00D47E", line_width=3)
+        fig_linha.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_linha, use_container_width=True)
 
-    # 3. Gráficos de Formas de Pagamento e Clientes
-    col_a, col_b = st.columns(2)
+with graf2:
+    st.subheader("👥 Top Clientes por Faturamento")
+    if 'Cliente' in df_filtered.columns:
+        top_clientes = df_filtered.groupby('Cliente')[coluna_valor].sum().reset_index().sort_values(by=coluna_valor,
+                                                                                                    ascending=True).tail(
+            7)
+        fig_barras = px.bar(
+            top_clientes,
+            x=coluna_valor,
+            y='Cliente',
+            orientation='h',
+            labels={coluna_valor: 'Total Gasto (R$)', 'Cliente': 'Cliente'},
+            template="plotly_dark",
+            color=coluna_valor,
+            color_continuous_scale="Viridis"
+        )
+        fig_barras.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", showlegend=False)
+        st.plotly_chart(fig_barras, use_container_width=True)
 
-    with col_a:
-      st.subheader("💳 Formas de Pagamento Preferidas")
-      pagamento_df = (
-          df_filtrado["Forma de Pagamento"].value_counts().reset_index()
-      )
-      pagamento_df.columns = ["Forma de Pagamento", "Quantidade"]
+# 7. Seção de Formas de Pagamento (PIX, Dinheiro, Cartão)
+st.markdown("---")
+pag_col1, pag_col2 = st.columns(2)
 
-      fig_pag = px.bar(
-          pagamento_df,
-          x="Forma de Pagamento",
-          y="Quantidade",
-          color="Forma de Pagamento",
-          color_discrete_sequence=["#00D1B2", "#20C997", "#38D9A9", "#63E6BE"],
-      )
-      fig_pag.update_layout(
-          plot_bgcolor="rgba(0,0,0,0)",
-          paper_bgcolor="rgba(0,0,0,0)",
-          font_color="#E0E6ED",
-          showlegend=False,
-          margin=dict(t=20, b=20, l=20, r=20),
-      )
-      st.plotly_chart(fig_pag, width="stretch")
+with pag_col1:
+    st.subheader("💳 Faturamento por Forma de Pagamento")
+    if 'Forma de Pagamento' in df_filtered.columns:
+        def simplificar_pagamento(texto):
+            texto_upper = str(texto).upper()
+            if "PIX" in texto_upper:
+                return "PIX"
+            elif "DÉBITO" in texto_upper:
+                return "Cartão de Débito"
+            elif "CRÉDITO" in texto_upper:
+                return "Cartão de Crédito"
+            elif "DINHEIRO" in texto_upper:
+                return "Dinheiro"
+            return "Outros"
 
-    with col_b:
-      st.subheader("🏆 Ranking de Clientes (Volume de Compras)")
-      top_clientes = (
-          df_filtrado.groupby("Cliente")["Valor Total"].sum().reset_index()
-      )
-      top_clientes = top_clientes.sort_values(
-          by="Valor Total", ascending=False
-      )
-      st.dataframe(top_clientes, width="stretch", hide_index=True)
 
-    st.markdown("---")
+        df_filtered_temp = df_filtered.copy()
+        df_filtered_temp['Tipo_Pagamento'] = df_filtered_temp['Forma de Pagamento'].apply(simplificar_pagamento)
 
-    # 4. Base de Dados Completa Consolidada
-    st.subheader("📋 Transações do Período Selecionado")
-    with st.expander("Clique para visualizar a tabela detalhada"):
-      st.dataframe(
-          df_filtrado.drop(
-              columns=["Data_DT", "Data_Dia", "Ano", "Mes_Ano"],
-              errors="ignore",
-          ),
-          width="stretch",
-      )
+        df_pag = df_filtered_temp.groupby('Tipo_Pagamento')[coluna_valor].sum().reset_index()
+        fig_pie = px.pie(
+            df_pag, names='Tipo_Pagamento', values=coluna_valor, hole=0.4,
+            template="plotly_dark", color_discrete_sequence=px.colors.qualitative.Safe
+        )
+        fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
+        st.plotly_chart(fig_pie, use_container_width=True)
+    else:
+        st.info("Coluna 'Forma de Pagamento' não encontrada nos dados.")
+
+with pag_col2:
+    st.subheader("📋 Resumo Consolidado de Pagamentos")
+    if 'Forma de Pagamento' in df_filtered.columns:
+        resumo_pag = df_filtered_temp.groupby('Tipo_Pagamento').agg(
+            Qtd_Transacoes=(coluna_valor, 'count'),
+            Faturamento_Total=(coluna_valor, 'sum')
+        ).reset_index()
+        st.dataframe(resumo_pag, use_container_width=True, hide_index=True)
+    else:
+        st.info("Sem dados de pagamento disponíveis.")
+
+# 8. Tabela Detalhada com Visão Interativa
+st.markdown("---")
+st.subheader("📄 Registros de Vendas Detalhados")
+colunas_exibir = ['Data e Hora', 'Cliente', coluna_valor,
+                  'Forma de Pagamento'] if 'Forma de Pagamento' in df.columns else ['Data e Hora', 'Cliente',
+                                                                                    coluna_valor]
+st.dataframe(
+    df_filtered[colunas_exibir],
+    use_container_width=True,
+    hide_index=True
+)

@@ -75,19 +75,23 @@ while caixa_aberto:
 
     # --- SISTEMA DE PAGAMENTO ---
     print("\n--- FORMAS DE PAGAMENTO ---")
-    print("1 - Cartão de Débito")
-    print("2 - Cartão de Crédito")
-    print("3 - Dinheiro")
+    print("1 - PIX")
+    print("2 - Cartão de Débito")
+    print("3 - Cartão de Crédito")
+    print("4 - Dinheiro")
 
-    opcao_pagamento = input("Escolha a forma de pagamento (1, 2 ou 3): ").strip()
+    opcao_pagamento = input("Escolha a forma de pagamento (1, 2, 3 ou 4): ").strip()
 
     detalhes_pagamento = ""
     troco = 0.0
 
     if opcao_pagamento == "1":
-        detalhes_pagamento = "Débito à vista"
+        detalhes_pagamento = "PIX"
 
     elif opcao_pagamento == "2":
+        detalhes_pagamento = "Débito à vista"
+
+    elif opcao_pagamento == "3":
         # Se a compra for menor que 100, já define direto como à vista
         if valor_final < 100.00:
             detalhes_pagamento = "Crédito à vista"
@@ -109,7 +113,7 @@ while caixa_aberto:
             else:
                 detalhes_pagamento = "Crédito à vista"
 
-    elif opcao_pagamento == "3":
+    elif opcao_pagamento == "4":
         while True:
             try:
                 valor_recebido = float(input("Qual o valor em dinheiro entregue pelo cliente? R$ "))
@@ -152,7 +156,7 @@ while caixa_aberto:
     print(f"Total a pagar: R$ {valor_final:.2f}")
     print(f"Forma de Pagamento: {detalhes_pagamento}")
 
-    if opcao_pagamento == "3":
+    if opcao_pagamento == "4":
         print(f"Troco a devolver: R$ {troco:.2f}")
 
     print(f"Obrigado pela preferência na Tenda das Frutas! {nome}, volte sempre 🍎\n")
