@@ -40,7 +40,7 @@ A **Tenda das Frutas** simula o ecossistema operacional de um comércio real, co
 
 -   vendas\_DD\_MM\_AAAA.csv - Bases de dados diárias geradas dinamicamente
 -   tenda\_frutas.py - Script CLI para registo transacional e regras de negócio
--   analise\_mensal.py - Script de consolidação e relatórios globais do mês
+-   consolidador\_vendas.py - Script de consolidação e relatórios globais do mês
 -   app.py - Aplicação web em Streamlit (Dashboard Analítico)
 -   README.md - Documentação técnica do projeto
 
