@@ -132,7 +132,7 @@ graf1, graf2 = st.columns(2)
 with graf1:
     st.subheader("📈 Evolução de Vendas ao Longo do Dia")
     if not df_filtered.empty and 'Data_dt' in df_filtered.columns:
-        df_hora = df_filtered.set_index('Data_dt').resample('1H')[coluna_valor].sum().reset_index()
+        df_hora = df_filtered.set_index('Data_dt').resample('1h')[coluna_valor].sum().reset_index()
         fig_linha = px.line(
             df_hora,
             x='Data_dt',
